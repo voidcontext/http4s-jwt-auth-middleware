@@ -14,7 +14,7 @@ val ScalaTestVersion = "3.0.8"
 val CirceVersion = "0.11.1"
 
 val libraryName = "http4s-jwt-auth-middleware"
-val libraryVersion = "0.0.1-SNAPSHOT"
+val libraryVersion = "0.1.0"
 val organisation = "com.gaborpihaj"
 
 ThisBuild / organization := organisation
