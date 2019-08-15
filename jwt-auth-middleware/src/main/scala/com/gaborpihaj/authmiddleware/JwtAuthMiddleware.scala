@@ -34,13 +34,13 @@ object JwtAuthMiddleware {
       case _ => Left[String, JwtClaim]("Bearer token authorization scheme is required")
     }
 
-    val errorMessageOrUserClaim = for {
+    val errorMessageOrClaim = for {
       authHeader <- request.headers.get(Authorization).toRight("Couldn't find Authorization header").right
       jwtClaim   <- parseCredentials(authHeader.credentials).right
       content    <- D.decode(jwtClaim.content).right
     } yield content
 
-    errorMessageOrUserClaim.pure[F]
+    errorMessageOrClaim.pure[F]
   }
 
   // For Scala 2.11 compat
