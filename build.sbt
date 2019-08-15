@@ -1,6 +1,6 @@
 
 lazy val scala211 = "2.11.12"
-lazy val scala212 = "2.12.9"
+lazy val scala212 = "2.12.8"
 lazy val supportedScalaVersions = List(scala212, scala211)
 
 // Some dependencies are not cross-compiled to Scala 2.13 yet.
