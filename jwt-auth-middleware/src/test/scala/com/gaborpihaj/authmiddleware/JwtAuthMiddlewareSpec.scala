@@ -2,7 +2,7 @@ package com.gaborpihaj.authmiddleware
 
 import cats.effect.IO
 import io.circe.generic.auto._
-import io.circe.parser.decode
+import io.circe.parser
 import org.http4s._
 import org.http4s.headers.Authorization
 import org.scalatest.Matchers
@@ -10,7 +10,9 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
-  implicit val jwtDecoder: JwtContentDecoder[Claims] = (claims: String) => decode[Claims](claims).left.map(_.getMessage)
+  implicit val jwtDecoder: JwtContentDecoder[Claims] = new JwtContentDecoder[Claims] {
+    override def decode(claims: String): Either[String, Claims] = parser.decode[Claims](claims).left.map(_.getMessage)
+  }
 
   val secretKey = "secret-key"
   val middleware = JwtAuthMiddleware[IO, Claims](secretKey, Seq(JwtAlgorithm.HS512))
