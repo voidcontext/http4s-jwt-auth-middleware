@@ -3,11 +3,16 @@ scala:
   - 2.11.11
   - 2.12.9
 
-cache:
-  directories:
-    - "$HOME/.coursier/cache"
-    - "$HOME/.ivy2/cache"
-    - "$HOME/.sbt/boot"
+jdk:
+  - openjdk7
+  - openjdk8
 
-before_cache:
-  - cleanup_cache
+matrix:
+  inlude:
+    - scala: 2.11.11
+      jdk:
+        - openjdk7
+        - openjdk8
+    - scala: 2.12.9
+      jdk:
+        - openjdk8
