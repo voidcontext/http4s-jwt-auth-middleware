@@ -2,3 +2,12 @@ language: scala
 scala:
   - 2.11.11
   - 2.12.9
+  -
+cache:
+  directories:
+    - "$HOME/.coursier/cache"
+    - "$HOME/.ivy2/cache"
+    - "$HOME/.sbt/boot"
+
+before_cache:
+  - cleanup_cache
