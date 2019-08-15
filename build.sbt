@@ -20,6 +20,10 @@ val organisation = "com.gaborpihaj"
 ThisBuild / organization := organisation
 ThisBuild / scalaVersion := scala212
 ThisBuild / version := libraryVersion
+ThisBuild / publishTo := sonatypePublishTo.value
+// Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
+ThisBuild / publishConfiguration := publishConfiguration.value.withOverwrite(true)
+ThisBuild / publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
 
 lazy val core = (project in file("jwt-auth-middleware"))
   .settings(
@@ -40,6 +44,10 @@ lazy val core = (project in file("jwt-auth-middleware"))
 
     addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
+
+    // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
+    publishConfiguration := publishConfiguration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
   )
 
 scalacOptions ++= Seq(
