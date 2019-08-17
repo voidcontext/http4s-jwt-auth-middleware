@@ -30,7 +30,7 @@ object JwtAuthMiddleware {
 
   def apply[F[_]: Monad, C](
     publicKey: PublicKey,
-    jwtAlgorithms: Seq[JwtAsymmetricAlgorithm],
+    jwtAlgorithms: Seq[JwtAsymmetricAlgorithm]
   )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
     AuthMiddleware(validateJWTToken(token => Jwt.decode(token, publicKey, jwtAlgorithms)), onFailure)
 
