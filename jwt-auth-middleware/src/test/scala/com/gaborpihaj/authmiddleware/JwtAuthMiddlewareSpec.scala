@@ -8,6 +8,9 @@ import org.http4s.headers.Authorization
 import org.scalatest.Matchers
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
+import java.security.{KeyPairGenerator}
+import javax.crypto.{KeyGenerator, SecretKey}
+
 class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
   implicit val jwtDecoder: JwtContentDecoder[Claims] = new JwtContentDecoder[Claims] {
@@ -71,4 +74,32 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)
   }
+
+  it should "work when a javax.crypto.SecretKey is provided" in {
+    val secretKey: SecretKey = KeyGenerator.getInstance("AES").generateKey()
+
+    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
+    val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val middleware = JwtAuthMiddleware[IO, Claims](secretKey, Seq(JwtAlgorithm.HS512))
+
+    val response = handleRequest(middleware, req).unsafeRunSync()
+    response.status should be(Status.Ok)
+    response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
+  }
+
+  it should "work when a java.security.PrivateKey is provided" in {
+    val keyPair = KeyPairGenerator.getInstance("RSA").genKeyPair()
+
+    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), keyPair.getPrivate(), JwtAlgorithm.RS512)
+    val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val middleware = JwtAuthMiddleware[IO, Claims](keyPair.getPublic(), JwtAlgorithm.allRSA())
+
+    val response = handleRequest(middleware, req).unsafeRunSync()
+    response.status should be(Status.Ok)
+    response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
+  }
+
+
 }

@@ -7,16 +7,33 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Authorization
 import org.http4s.server.AuthMiddleware
 import org.http4s.{AuthScheme, AuthedRoutes, Credentials, Request}
-import pdi.jwt.algorithms.JwtHmacAlgorithm
+import pdi.jwt.algorithms.{JwtAsymmetricAlgorithm, JwtHmacAlgorithm}
 import pdi.jwt.{Jwt, JwtClaim}
 
 import scala.util.{Failure, Success, Try}
 
+import java.security.PublicKey
+import javax.crypto.SecretKey
+
 object JwtAuthMiddleware {
-  def apply[F[_]: Monad, C](secretKey: String, jwtAlgorithms: Seq[JwtHmacAlgorithm])(
-    implicit D: JwtContentDecoder[C]
-  ): AuthMiddleware[F, C] =
+  def apply[F[_]: Monad, C](
+    secretKey: String,
+    jwtAlgorithms: Seq[JwtHmacAlgorithm]
+  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
     AuthMiddleware(validateJWTToken(token => Jwt.decode(token, secretKey, jwtAlgorithms)), onFailure)
+
+  def apply[F[_]: Monad, C](
+    secretKey: SecretKey,
+    jwtAlgorithms: Seq[JwtHmacAlgorithm]
+  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
+    AuthMiddleware(validateJWTToken(token => Jwt.decode(token, secretKey, jwtAlgorithms)), onFailure)
+
+  def apply[F[_]: Monad, C](
+    publicKey: PublicKey,
+    jwtAlgorithms: Seq[JwtAsymmetricAlgorithm],
+  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
+    AuthMiddleware(validateJWTToken(token => Jwt.decode(token, publicKey, jwtAlgorithms)), onFailure)
+
 
   private[this] def onFailure[F[_]: Monad]: AuthedRoutes[String, F] = {
     val dsl = new Http4sDsl[F] {}
