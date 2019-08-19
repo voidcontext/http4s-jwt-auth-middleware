@@ -21,7 +21,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
   val middleware = JwtAuthMiddleware[IO, Claims](secretKey, Seq(JwtAlgorithm.HS512))
 
   "JwtAuthMiddleware" should "return error when auth header is nor present" in {
-    val req = Request[IO](Method.POST, uri"/some-endpoint")
+    val req = Request[IO](Method.GET, uri"/some-endpoint")
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)
@@ -30,7 +30,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
   it should "return the user claim when the header is valid" in {
     val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Ok)
@@ -39,7 +39,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
   it should "return an error when the auth header is not using the bearer token scheme" in {
     val headers: Headers = Headers.of(Authorization(BasicCredentials("some-username", "some-password")))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)
@@ -54,7 +54,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
       JwtAlgorithm.HS512
     )
     val headers: Headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)
@@ -69,7 +69,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
       JwtAlgorithm.HS256
     )
     val headers: Headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)
@@ -80,7 +80,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
     val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
     val middleware = JwtAuthMiddleware[IO, Claims](secretKey, Seq(JwtAlgorithm.HS512))
 
     val response = handleRequest(middleware, req).unsafeRunSync()
@@ -93,7 +93,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
     val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), keyPair.getPrivate(), JwtAlgorithm.RS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
-    val req = Request[IO](Method.POST, uri"/some-endpoint", headers = headers)
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
     val middleware = JwtAuthMiddleware[IO, Claims](keyPair.getPublic(), JwtAlgorithm.allRSA())
 
     val response = handleRequest(middleware, req).unsafeRunSync()
@@ -101,5 +101,13 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
   }
 
+  "JwtAuthmiddleware.noSpider" should "create a middleware with fallthrough" in {
+    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
+    val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+    val req = Request[IO](Method.GET, uri"/nonexistent", headers = headers)
 
+    val middleware = JwtAuthMiddleware.noSpider[IO, Claims](secretKey, Seq(JwtAlgorithm.HS512))
+    val response = handleRequest(middleware, req).unsafeRunSync()
+    response.status should be(Status.NotFound)
+  }
 }

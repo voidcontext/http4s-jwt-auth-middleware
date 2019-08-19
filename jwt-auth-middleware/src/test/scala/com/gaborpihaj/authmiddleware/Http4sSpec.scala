@@ -4,6 +4,7 @@ import cats.effect.IO
 import fs2.Stream
 import org.http4s.{AuthedRoutes, Entity, EntityEncoder, Headers, Request, Response}
 import org.http4s.dsl.io._
+import org.http4s.implicits._
 import org.http4s.server.AuthMiddleware
 import org.scalatest.FlatSpec
 
@@ -17,14 +18,11 @@ trait Http4sSpec extends FlatSpec {
 
       override def headers: Headers = Headers.empty
     }
-    val route = AuthedRoutes.of[Claims, IO]({ case _ as claims => Ok(claims) })
-    middleware(route)
-      .run(request)
-      .value
-      .map {
-        case Some(response) => response
-        case _              => fail("Didn't get a response")
-      }
-  }
 
+    val route = AuthedRoutes.of[Claims, IO]({ case GET -> Root / "some-endpoint" as claims => Ok(claims) })
+
+    middleware(route)
+      .orNotFound
+      .run(request)
+  }
 }
