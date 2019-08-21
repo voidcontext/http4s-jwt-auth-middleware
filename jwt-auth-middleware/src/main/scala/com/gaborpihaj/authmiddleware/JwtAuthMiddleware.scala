@@ -35,15 +35,6 @@ object JwtAuthMiddleware {
   )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
     AuthMiddleware(validateJWTToken(token => Jwt.decode(token, publicKey, jwtAlgorithms)), onFailure)
 
-  def noSpider[F[_]: Monad, C](
-    secretKey: String,
-    jwtAlgorithms: Seq[JwtHmacAlgorithm]
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware.noSpider(
-      validateJWTTokenForNoSpider(token => Jwt.decode(token, secretKey, jwtAlgorithms)), 
-      AuthMiddleware.defaultAuthFailure
-    )
-
   private[this] def onFailure[F[_]: Monad]: AuthedRoutes[String, F] = {
     val dsl = new Http4sDsl[F] {}
 
@@ -68,17 +59,6 @@ object JwtAuthMiddleware {
 
     errorMessageOrClaim.pure[F]
   }
-
-  private[this] def validateJWTTokenForNoSpider[F[_]: Monad, C](jwtDecoder: String =>Try[JwtClaim])()(
-    implicit D: JwtContentDecoder[C]
-  ): Kleisli[OptionT[F, ?], Request[F], C] = 
-    validateJWTToken[F, C](jwtDecoder)()
-      .mapK(OptionT.liftK[F])
-      .flatMapF { 
-        case Left(_)      => OptionT[F, C](Option.empty.pure[F])
-        case Right(claim) => OptionT[F, C](Option(claim).pure[F])
-      }
-
 
   // For Scala 2.11 compat
   private[this] def toEither[A](tryResult: Try[A]): Either[Throwable, A] = tryResult match {
