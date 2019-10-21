@@ -13,7 +13,13 @@ import scala.util.{Failure, Success, Try}
 
 object JwtAuthMiddleware {
   def apply[F[_]: Monad, C](validationContext: JwtValidationContext)(implicit D: JwtContentDecoder[C]) =
-    AuthMiddleware(validateJWTToken(JwtValidationContext.decoder(validationContext)), onFailure)
+    AuthMiddleware(validateRequest(JwtValidationContext.decoder(validationContext)), onFailure)
+
+  def apply[F[_]: Monad, C](
+    validationContext: JwtValidationContext, 
+    validate: Kleisli[F, Either[String, C], Either[String, C]]
+  )(implicit D: JwtContentDecoder[C]) =
+    AuthMiddleware(validateRequest(JwtValidationContext.decoder(validationContext)).andThen(validate), onFailure)
 
   private[this] def onFailure[F[_]: Monad]: AuthedRoutes[String, F] = {
     val dsl = new Http4sDsl[F] {}
@@ -22,9 +28,10 @@ object JwtAuthMiddleware {
     Kleisli(req => OptionT.liftF(Forbidden(req.authInfo)))
   }
 
-  private[this] def validateJWTToken[F[_]: Applicative, C](jwtDecoder: String => Try[JwtClaim])()(
+  private[this] def validateRequest[F[_]: Applicative, C](jwtDecoder: String => Try[JwtClaim])(
     implicit D: JwtContentDecoder[C]
   ): Kleisli[F, Request[F], Either[String, C]] = Kleisli { request =>
+
     def parseCredentials(credentials: Credentials): Either[String, JwtClaim] = credentials match {
       case Credentials.Token(AuthScheme.Bearer, token) =>
         toEither(jwtDecoder(token)).left.map(_ => "JWT Token invalid")

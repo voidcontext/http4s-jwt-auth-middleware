@@ -10,6 +10,7 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 import java.security.{KeyPairGenerator}
 import javax.crypto.{KeyGenerator, SecretKey}
+import cats.data.Kleisli
 
 class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
@@ -122,5 +123,25 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Ok)
     response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
+  }
+
+  it should "apply additional validation if provided" in {
+    val secretKey = "secret-key"
+    val hmacStringKey = JwtHmacStringKey(secretKey, Seq(JwtAlgorithm.HS512))
+
+
+    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
+    val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+    val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
+
+    val validation: Kleisli[IO, Either[String, Claims], Either[String, Claims]] = Kleisli { result => 
+      IO(result.right.flatMap(_ => Left("Nope!")))
+    }
+
+    val middleware = JwtAuthMiddleware[IO, Claims](hmacStringKey, validation)
+
+
+    val response = handleRequest(middleware, req).unsafeRunSync()
+    response.status should be(Status.Forbidden)
   }
 }
