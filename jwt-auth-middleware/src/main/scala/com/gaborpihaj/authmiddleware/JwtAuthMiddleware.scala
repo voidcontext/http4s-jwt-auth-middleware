@@ -1,7 +1,6 @@
 package com.gaborpihaj.authmiddleware
 
 import cats.data.{Kleisli, OptionT}
-import cats.syntax.applicative._
 import cats.{Applicative, Monad}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Authorization
@@ -12,39 +11,46 @@ import pdi.jwt.JwtClaim
 import scala.util.{Failure, Success, Try}
 
 object JwtAuthMiddleware {
-  def apply[F[_]: Monad, C](validationContext: JwtValidationContext)(implicit D: JwtContentDecoder[C]) =
-    AuthMiddleware(validateRequest(JwtValidationContext.decoder(validationContext)), onFailure)
+
+  def validateToken[F[_]: Monad, C](validationContext: JwtValidationContext)(
+    implicit A: Applicative[F],
+    D: JwtContentDecoder[C]
+  ): Kleisli[F, Request[F], Either[Error, C]] =
+    Kleisli { request =>
+      val jwtDecoder = JwtValidationContext.decoder(validationContext)
+
+      def parseCredentials(credentials: Credentials): Either[Error, JwtClaim] = credentials match {
+      case Credentials.Token(AuthScheme.Bearer, token) =>
+        toEither(jwtDecoder(token)).left.map(_ => InvalidToken)
+      case _ => Left[Error, JwtClaim](InvalidAuthHeader)
+    }
+
+    A.pure(
+      for {
+        authHeader <- request.headers.get(Authorization).toRight(InvalidAuthHeader).right
+        jwtClaim   <- parseCredentials(authHeader.credentials).right
+        content    <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_)).right
+      } yield content
+    )
+  }
 
   def apply[F[_]: Monad, C](
-    validationContext: JwtValidationContext, 
-    validate: Kleisli[F, Either[String, C], Either[String, C]]
-  )(implicit D: JwtContentDecoder[C]) =
-    AuthMiddleware(validateRequest(JwtValidationContext.decoder(validationContext)).andThen(validate), onFailure)
+    validationContext: JwtValidationContext
+  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
+    AuthMiddleware(validateToken(validationContext), forbiddenOnFailure)
 
-  private[this] def onFailure[F[_]: Monad]: AuthedRoutes[String, F] = {
+  def apply[F[_]: Monad, C, E](
+    validationContext: JwtValidationContext,
+    validate: Kleisli[F, Either[Error, C], Either[E, C]],
+    onFailure: AuthedRoutes[E, F]
+  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
+    AuthMiddleware(validateToken(validationContext).andThen(validate), onFailure)
+
+  def forbiddenOnFailure[F[_]: Monad]: AuthedRoutes[Error, F] = {
     val dsl = new Http4sDsl[F] {}
 
     import dsl._
-    Kleisli(req => OptionT.liftF(Forbidden(req.authInfo)))
-  }
-
-  private[this] def validateRequest[F[_]: Applicative, C](jwtDecoder: String => Try[JwtClaim])(
-    implicit D: JwtContentDecoder[C]
-  ): Kleisli[F, Request[F], Either[String, C]] = Kleisli { request =>
-
-    def parseCredentials(credentials: Credentials): Either[String, JwtClaim] = credentials match {
-      case Credentials.Token(AuthScheme.Bearer, token) =>
-        toEither(jwtDecoder(token)).left.map(_ => "JWT Token invalid")
-      case _ => Left[String, JwtClaim]("Bearer token authorization scheme is required")
-    }
-
-    val errorMessageOrClaim = for {
-      authHeader <- request.headers.get(Authorization).toRight("Couldn't find Authorization header").right
-      jwtClaim   <- parseCredentials(authHeader.credentials).right
-      content    <- D.decode(jwtClaim.content).right
-    } yield content
-
-    errorMessageOrClaim.pure[F]
+    Kleisli(_ => OptionT.liftF(Forbidden()))
   }
 
   // For Scala 2.11 compat
