@@ -16,7 +16,6 @@ import cats.data.Kleisli
 
 class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
-
   implicit val jwtDecoder: JwtContentDecoder[Claims] = new JwtContentDecoder[Claims] {
     override def decode(claims: String): Either[String, Claims] = parser.decode[Claims](claims).left.map(_.getMessage)
   }
@@ -48,7 +47,8 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     secretKey,
     JwtAlgorithm.HS512
   )
-  val unparsableTokenAuthHeader: Headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, unparsebleToken)))
+  val unparsableTokenAuthHeader: Headers =
+    Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, unparsebleToken)))
   val unparsableTokenRequest = Request[IO](Method.GET, uri"/some-endpoint", headers = unparsableTokenAuthHeader)
 
   val validToken = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
@@ -74,7 +74,7 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     val result = JwtAuthMiddleware.validateToken[IO, Claims](hmacStringKey).run(unparsableTokenRequest).unsafeRunSync()
     result match {
       case Left(error) => error shouldBe an[JwtContentDecoderError]
-      case _ => fail()
+      case _           => fail()
     }
   }
 
@@ -90,7 +90,8 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
   it should "return 403 Forbidden when token is not valid and URL is not found" in {
 
-    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), "some-other-secret", JwtAlgorithm.HS512)
+    val token =
+      Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), "some-other-secret", JwtAlgorithm.HS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
     val req = Request[IO](Method.GET, uri"/nonexistent", headers = headers)
 
@@ -154,7 +155,8 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
   it should "return 200 OK when a java.security.PrivateKey is provided and token is valid" in {
     val keyPair = KeyPairGenerator.getInstance("RSA").genKeyPair()
 
-    val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), keyPair.getPrivate(), JwtAlgorithm.RS512)
+    val token =
+      Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), keyPair.getPrivate(), JwtAlgorithm.RS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
     val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
     val middleware = JwtAuthMiddleware[IO, Claims](JwtPublicKey(keyPair.getPublic(), JwtAlgorithm.allRSA()))
@@ -168,19 +170,17 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     val secretKey = "secret-key"
     val hmacStringKey = JwtHmacStringKey(secretKey, Seq(JwtAlgorithm.HS512))
 
-
     val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
     val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
     val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
-    val validation: Kleisli[IO, Either[Error, Claims], Either[String, Claims]] = Kleisli { result => 
+    val validation: Kleisli[IO, Either[Error, Claims], Either[String, Claims]] = Kleisli { result =>
       IO.pure(result.left.map(_.toString).right.flatMap(_ => Left("Nope!")))
     }
 
     val onFailure: AuthedRoutes[String, IO] = Kleisli(req => OptionT.liftF(Forbidden(req.authInfo)))
 
     val middleware = JwtAuthMiddleware[IO, Claims, String](hmacStringKey, validation, onFailure)
-
 
     val response = handleRequest(middleware, req).unsafeRunSync()
     response.status should be(Status.Forbidden)

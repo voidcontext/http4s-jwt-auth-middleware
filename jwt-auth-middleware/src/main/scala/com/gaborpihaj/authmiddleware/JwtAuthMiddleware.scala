@@ -10,18 +10,18 @@ import pdi.jwt.JwtClaim
 
 import scala.util.{Failure, Success, Try}
 
-/** Provides a JWT validation function that can be used with Http4s' AuthMiddleware. 
-  * 
-  * The module also provides a simplified interface to construct AuthMiddlewares.
-  */
+/** Provides a JWT validation function that can be used with Http4s' AuthMiddleware.
+ *
+ * The module also provides a simplified interface to construct AuthMiddlewares.
+ */
 object JwtAuthMiddleware {
 
-  /** Validates the JSON Web Token that is extracted from the Authorization header 
-    * 
-    * @param validationContext holds secrets, keys and encyrption/hashing algorithms used to validate the JWT's 
-    *                          signature
-    * @return a validation function that can be used with Http4s' AuthMiddleware
-    */
+  /** Validates the JSON Web Token that is extracted from the Authorization header
+   *
+   * @param validationContext holds secrets, keys and encyrption/hashing algorithms used to validate the JWT's
+   *                          signature
+   * @return a validation function that can be used with Http4s' AuthMiddleware
+   */
   def validateToken[F[_]: Monad, C](validationContext: JwtValidationContext)(
     implicit A: Applicative[F],
     D: JwtContentDecoder[C]
@@ -30,19 +30,19 @@ object JwtAuthMiddleware {
       val jwtDecoder = JwtValidationContext.decoder(validationContext)
 
       def parseCredentials(credentials: Credentials): Either[Error, JwtClaim] = credentials match {
-      case Credentials.Token(AuthScheme.Bearer, token) =>
-        toEither(jwtDecoder(token)).left.map(_ => InvalidToken)
-      case _ => Left[Error, JwtClaim](InvalidAuthHeader)
-    }
+        case Credentials.Token(AuthScheme.Bearer, token) =>
+          toEither(jwtDecoder(token)).left.map(_ => InvalidToken)
+        case _ => Left[Error, JwtClaim](InvalidAuthHeader)
+      }
 
-    A.pure(
-      for {
-        authHeader <- request.headers.get(Authorization).toRight(InvalidAuthHeader).right
-        jwtClaim   <- parseCredentials(authHeader.credentials).right
-        content    <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_)).right
-      } yield content
-    )
-  }
+      A.pure(
+        for {
+          authHeader <- request.headers.get(Authorization).toRight(InvalidAuthHeader).right
+          jwtClaim   <- parseCredentials(authHeader.credentials).right
+          content    <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_)).right
+        } yield content
+      )
+    }
 
   def apply[F[_]: Monad, C](
     validationContext: JwtValidationContext
