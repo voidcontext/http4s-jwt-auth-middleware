@@ -10,8 +10,18 @@ import pdi.jwt.JwtClaim
 
 import scala.util.{Failure, Success, Try}
 
+/** Provides a JWT validation function that can be used with Http4s' AuthMiddleware. 
+  * 
+  * The module also provides a simplified interface to construct AuthMiddlewares.
+  */
 object JwtAuthMiddleware {
 
+  /** Validates the JSON Web Token that is extracted from the Authorization header 
+    * 
+    * @param validationContext holds secrets, keys and encyrption/hashing algorithms used to validate the JWT's 
+    *                          signature
+    * @return a validation function that can be used with Http4s' AuthMiddleware
+    */
   def validateToken[F[_]: Monad, C](validationContext: JwtValidationContext)(
     implicit A: Applicative[F],
     D: JwtContentDecoder[C]
