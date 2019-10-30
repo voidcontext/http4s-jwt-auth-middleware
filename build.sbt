@@ -48,7 +48,11 @@ lazy val core = (project in file("jwt-auth-middleware"))
     // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
     publishConfiguration := publishConfiguration.value.withOverwrite(true),
     publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-  )
+
+    micrositeCompilingDocsTool := WithMdoc
+
+  ).enablePlugins(MicrositesPlugin)
+
 
 scalacOptions ++= Seq(
   "-deprecation",
