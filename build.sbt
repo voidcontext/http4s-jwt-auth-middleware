@@ -1,14 +1,14 @@
 
 lazy val scala211 = "2.11.12"
-lazy val scala212 = "2.12.8"
+lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala212, scala211)
 
 // Some dependencies are not cross-compiled to Scala 2.13 yet.
 //lazy val scala213 = "2.13.0"
 //lazy val supportedScalaVersions = List(scala212, scala213)
 
-val Http4sVersion = "0.20.4"
-val JwtVersion = "3.1.0"
+val Http4sVersion = "0.20.12"
+val JwtVersion = "4.1.0"
 
 val ScalaTestVersion = "3.0.8"
 val CirceVersion = "0.11.1"
