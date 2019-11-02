@@ -1,0 +1,3 @@
+-java-home /Users/gaborpihaj/.sdkman/candidates/java/current
+-mem 2048
+-J-XX:MaxMetaspaceSize=512M

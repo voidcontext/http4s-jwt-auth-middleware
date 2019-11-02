@@ -25,10 +25,27 @@ ThisBuild / publishTo := sonatypePublishTo.value
 ThisBuild / publishConfiguration := publishConfiguration.value.withOverwrite(true)
 ThisBuild / publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
 
-lazy val core = (project in file("jwt-auth-middleware"))
+val defaultSettings = Seq(
+    crossScalaVersions := supportedScalaVersions,
+
+    // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
+    publishConfiguration := publishConfiguration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
+)
+
+lazy val root = (project in file("."))
+  .settings(defaultSettings)
+  .settings(
+    micrositeCompilingDocsTool := WithMdoc
+  )
+  .dependsOn(jwtAuthMiddleware, jwtAuthCirce)
+  .aggregate(jwtAuthMiddleware, jwtAuthCirce)
+  .enablePlugins(MicrositesPlugin)
+
+lazy val jwtAuthMiddleware = (project in file("jwt-auth-middleware"))
+  .settings(defaultSettings)
   .settings(
     name := libraryName,
-    crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-server" % Http4sVersion,
       "org.http4s" %% "http4s-dsl" % Http4sVersion,
@@ -43,15 +60,22 @@ lazy val core = (project in file("jwt-auth-middleware"))
     ),
 
     addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
+  )
 
-    // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
-    publishConfiguration := publishConfiguration.value.withOverwrite(true),
-    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
+lazy val jwtAuthCirce = (project in file("jwt-auth-circe"))
+  .settings(defaultSettings)
+  .settings(
+    name := "http4s-jwt-auth-circe",
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-generic" % CirceVersion,
+      "io.circe" %% "circe-parser" % CirceVersion,
 
-    micrositeCompilingDocsTool := WithMdoc
-
-  ).enablePlugins(MicrositesPlugin)
+      "io.circe" %% "circe-generic" % CirceVersion % "test",
+      "org.scalatest" %% "scalatest" % ScalaTestVersion % "test",
+    )
+  )
+  .dependsOn(jwtAuthMiddleware)
 
 
 scalacOptions ++= Seq(
