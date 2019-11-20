@@ -17,9 +17,12 @@ val libraryName = "http4s-jwt-auth-middleware"
 val libraryVersion = "0.2.0-SNAPSHOT"
 val organisation = "com.gaborpihaj"
 
+val website = "https://voidcontext.github.io/http4s-jwt-auth-middleware"
+
 ThisBuild / organization := organisation
 ThisBuild / scalaVersion := scala212
 ThisBuild / version := libraryVersion
+ThisBuild / homepage := Some(url(website))
 ThisBuild / publishTo := sonatypePublishTo.value
 // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
 ThisBuild / publishConfiguration := publishConfiguration.value.withOverwrite(true)
@@ -36,6 +39,14 @@ val defaultSettings = Seq(
 lazy val root = (project in file("."))
   .settings(defaultSettings)
   .settings(
+    micrositeName := libraryName,
+    micrositeDescription := "A JWT based AuthenticationMiddleware for Http4s",
+    micrositeDocumentationUrl := "docs/step-by-step-example.html",
+
+    micrositeGithubOwner := "voidcontext",
+    micrositeGithubRepo := libraryName,
+    micrositeGitterChannle := false,
+
     micrositeCompilingDocsTool := WithMdoc
   )
   .dependsOn(jwtAuthMiddleware, jwtAuthCirce)
