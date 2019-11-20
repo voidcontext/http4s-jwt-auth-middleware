@@ -45,7 +45,7 @@ lazy val root = (project in file("."))
 
     micrositeGithubOwner := "voidcontext",
     micrositeGithubRepo := libraryName,
-    micrositeGitterChannle := false,
+    micrositeGitterChannel := false,
 
     micrositeCompilingDocsTool := WithMdoc
   )
