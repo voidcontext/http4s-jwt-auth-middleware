@@ -8,8 +8,6 @@ import org.http4s.server.AuthMiddleware
 import org.http4s.{AuthScheme, AuthedRoutes, Credentials, Request}
 import pdi.jwt.JwtClaim
 
-import scala.util.{Failure, Success, Try}
-
 /** Provides a JWT validation function that can be used with Http4s' AuthMiddleware.
  *
  * The module also provides a simplified interface to construct AuthMiddlewares.
@@ -31,15 +29,15 @@ object JwtAuthMiddleware {
 
       def parseCredentials(credentials: Credentials): Either[Error, JwtClaim] = credentials match {
         case Credentials.Token(AuthScheme.Bearer, token) =>
-          toEither(jwtDecoder(token)).left.map(_ => InvalidToken)
+          jwtDecoder(token).toEither.left.map(_ => InvalidToken)
         case _ => Left[Error, JwtClaim](InvalidAuthHeader)
       }
 
       A.pure(
         for {
-          authHeader <- request.headers.get(Authorization).toRight(InvalidAuthHeader).right
-          jwtClaim   <- parseCredentials(authHeader.credentials).right
-          content    <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_)).right
+          authHeader <- request.headers.get(Authorization).toRight(InvalidAuthHeader)
+          jwtClaim   <- parseCredentials(authHeader.credentials)
+          content    <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_))
         } yield content
       )
     }
@@ -61,11 +59,5 @@ object JwtAuthMiddleware {
 
     import dsl._
     Kleisli(_ => OptionT.liftF(Forbidden()))
-  }
-
-  // For Scala 2.11 compat
-  private[this] def toEither[A](tryResult: Try[A]): Either[Throwable, A] = tryResult match {
-    case Success(value)     => Right(value)
-    case Failure(exception) => Left(exception)
   }
 }

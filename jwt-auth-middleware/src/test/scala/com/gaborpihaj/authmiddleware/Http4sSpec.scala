@@ -6,9 +6,9 @@ import org.http4s.{AuthedRoutes, Entity, EntityEncoder, Headers, Request, Respon
 import org.http4s.dsl.io._
 import org.http4s.implicits._
 import org.http4s.server.AuthMiddleware
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
-trait Http4sSpec extends FlatSpec {
+trait Http4sSpec extends AnyFlatSpec {
   def handleRequest(middleware: AuthMiddleware[IO, Claims], request: Request[IO]): IO[Response[IO]] = {
     implicit val entityEncoder: EntityEncoder[IO, Claims] = new EntityEncoder[IO, Claims] {
       override def toEntity(a: Claims): Entity[IO] = Entity(

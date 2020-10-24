@@ -5,14 +5,15 @@ import cats.data.OptionT
 import io.circe.generic.auto._
 import io.circe.parser
 import org.http4s._
+import org.http4s.implicits._
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
-import org.scalatest.Matchers
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 import java.security.{KeyPairGenerator}
 import javax.crypto.{KeyGenerator, SecretKey}
 import cats.data.Kleisli
+import org.scalatest.matchers.should.Matchers
 
 class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
 
@@ -175,10 +176,10 @@ class JwtAuthMiddlewareSpec extends Http4sSpec with Matchers {
     val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
     val validation: Kleisli[IO, Either[Error, Claims], Either[String, Claims]] = Kleisli { result =>
-      IO.pure(result.left.map(_.toString).right.flatMap(_ => Left("Nope!")))
+      IO.pure(result.left.map(_.toString).flatMap(_ => Left("Nope!")))
     }
 
-    val onFailure: AuthedRoutes[String, IO] = Kleisli(req => OptionT.liftF(Forbidden(req.authInfo)))
+    val onFailure: AuthedRoutes[String, IO] = Kleisli(req => OptionT.liftF(Forbidden(req.context)))
 
     val middleware = JwtAuthMiddleware[IO, Claims, String](hmacStringKey, validation, onFailure)
 
