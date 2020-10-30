@@ -101,7 +101,7 @@ object JwtAuthMiddleware {
           apply(builder.copy(extractors = List(extractTokenFromCookie[F](name) _)))
 
         def allowCookie(name: String): JwtAuthMiddlewareBuilder[F, C, Error] =
-          apply(builder.copy(extractors = List(extractTokenFromAuthHeader[F] _, extractTokenFromAuthHeader[F] _)))
+          apply(builder.copy(extractors = List(extractTokenFromAuthHeader[F] _, extractTokenFromCookie[F](name) _)))
 
         def validate(f: Kleisli[F, C, Either[Error, C]]): JwtAuthMiddlewareBuilder[F, C, Error] =
           apply(builder.copy(validate = liftG(f)))

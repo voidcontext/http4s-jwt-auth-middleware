@@ -175,6 +175,13 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
     }
 
+    "return 200 when token is valid and provided in a cookie and URL is found" in {
+      val m = JwtAuthMiddleware.builder[IO, Claims](hmacStringKey).expectCookieOnly("test-auth-cookie").middleware
+      val response = handleRequest(m, authorisedRequestWithCookie).unsafeRunSync()
+      response.status should be(Status.Ok)
+      response.attemptAs[String].value.unsafeRunSync() should be(Right("some-user-id"))
+    }
+
     "return 404 when token is valid but URL is not found" in {
       val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
       val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
