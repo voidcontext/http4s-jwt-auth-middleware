@@ -11,7 +11,7 @@ val ScalaTestVersion = "3.2.2"
 val CirceVersion = "0.13.0"
 
 val libraryName = "http4s-jwt-auth-middleware"
-val libraryVersion = "0.4.0"
+val libraryVersion = "0.5.0-SNAPSHOT"
 val organisation = "com.gaborpihaj"
 
 val website = "https://voidcontext.github.io/http4s-jwt-auth-middleware"
@@ -26,6 +26,7 @@ ThisBuild / publishTo := sonatypePublishToBundle.value
 ThisBuild / publishConfiguration := publishConfiguration.value.withOverwrite(true)
 ThisBuild / publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
 
+ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.4.3"
 
 lazy val publishSettings = List(
   licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
@@ -34,12 +35,12 @@ lazy val publishSettings = List(
 )
 
 lazy val defaultSettings = Seq(
+  addCompilerPlugin(scalafixSemanticdb),
   crossScalaVersions := supportedScalaVersions,
   testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
-
   // // Following 2 lines need to get around https://github.com/sbt/sbt/issues/4275
   publishConfiguration := publishConfiguration.value.withOverwrite(true),
-  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
+  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
 )
 
 lazy val root = (project in file("."))
@@ -49,11 +50,9 @@ lazy val root = (project in file("."))
     micrositeName := libraryName,
     micrositeDescription := "A JWT based AuthenticationMiddleware for Http4s",
     micrositeDocumentationUrl := "docs/step-by-step-example.html",
-
     micrositeGithubOwner := "voidcontext",
     micrositeGithubRepo := libraryName,
     micrositeGitterChannel := false,
-
     micrositeCompilingDocsTool := WithMdoc
   )
   .dependsOn(jwtAuthMiddleware, jwtAuthCirce)
@@ -66,20 +65,15 @@ lazy val jwtAuthMiddleware = (project in file("jwt-auth-middleware"))
     publishSettings,
     defaultSettings,
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-server" % Http4sVersion,
-      "org.http4s" %% "http4s-dsl" % Http4sVersion,
-
-      "com.pauldijou" %% "jwt-core" % JwtVersion,
-
-      "org.scalatest" %% "scalatest" % ScalaTestVersion % "test",
-
-      "io.circe" %% "circe-generic" % CirceVersion % "test",
-      "io.circe" %% "circe-parser" % CirceVersion % "test",
-
+      "org.http4s"    %% "http4s-server" % Http4sVersion,
+      "org.http4s"    %% "http4s-dsl"    % Http4sVersion,
+      "com.pauldijou" %% "jwt-core"      % JwtVersion,
+      "org.scalatest" %% "scalatest"     % ScalaTestVersion % "test",
+      "io.circe"      %% "circe-generic" % CirceVersion     % "test",
+      "io.circe"      %% "circe-parser"  % CirceVersion     % "test"
     ),
-
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
+    addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.10.3"),
+    addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1")
   )
 
 lazy val jwtAuthCirce = (project in file("jwt-auth-circe"))
@@ -88,11 +82,13 @@ lazy val jwtAuthCirce = (project in file("jwt-auth-circe"))
     publishSettings,
     defaultSettings,
     libraryDependencies ++= Seq(
-      "io.circe" %% "circe-generic" % CirceVersion,
-      "io.circe" %% "circe-parser" % CirceVersion,
-
-      "io.circe" %% "circe-generic" % CirceVersion % "test",
-      "org.scalatest" %% "scalatest" % ScalaTestVersion % "test",
+      "io.circe"      %% "circe-generic" % CirceVersion,
+      "io.circe"      %% "circe-parser"  % CirceVersion,
+      "io.circe"      %% "circe-generic" % CirceVersion     % "test",
+      "org.scalatest" %% "scalatest"     % ScalaTestVersion % "test"
     )
   )
   .dependsOn(jwtAuthMiddleware)
+
+addCommandAlias("fmt", ";scalafix ;test:scalafix ;scalafmtAll ;scalafmtSbt")
+addCommandAlias("prePush", ";fmt ;clean ;reload ;test")

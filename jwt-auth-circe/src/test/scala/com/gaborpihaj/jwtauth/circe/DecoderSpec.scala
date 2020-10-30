@@ -1,8 +1,7 @@
 package com.gaborpihaj.jwtauth.circe
 
-import io.circe.generic.auto._
-
 import com.gaborpihaj.authmiddleware.JwtContentDecoder
+import io.circe.generic.auto._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

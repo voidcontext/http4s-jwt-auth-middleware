@@ -1,26 +1,24 @@
 package com.gaborpihaj.authmiddleware
 
 import cats.data.{Kleisli, OptionT}
-import cats.{Applicative, Monad}
-import org.http4s.Status
-import org.http4s.headers.Authorization
-import org.http4s.server.AuthMiddleware
-import org.http4s.{AuthScheme, AuthedRoutes, Credentials, Request}
-import pdi.jwt.JwtClaim
+import cats.instances.string._
 import cats.syntax.eq._
 import cats.syntax.traverse._
-import cats.instances.string._
-import org.http4s.Response
-import org.http4s.AuthedRequest
-import cats.Traverse
+import cats.{Applicative, Monad, Traverse}
+import org.http4s._
+import org.http4s.headers.Authorization
+import org.http4s.server.AuthMiddleware
+import pdi.jwt.JwtClaim
 
-/** Provides a JWT validation function that can be used with Http4s' AuthMiddleware.
+/**
+ * Provides a JWT validation function that can be used with Http4s' AuthMiddleware.
  *
  * The module also provides a simplified interface to construct AuthMiddlewares.
  */
 object JwtAuthMiddleware {
 
-  /** Validates the JSON Web Token that is extracted from the Authorization header
+  /**
+   * Validates the JSON Web Token that is extracted from the Authorization header
    *
    * @param validationContext holds secrets, keys and encyrption/hashing algorithms used to validate the JWT's
    *                          signature
@@ -37,10 +35,9 @@ object JwtAuthMiddleware {
         jwtDecoder(token).toEither.left.map(_ => InvalidToken)
 
       def extractFirst(req: Request[F]): Either[Error, String] =
-        tokenExtractors
-          .collectFirst {
-            case e if e(req).isRight => e(req)
-          }
+        tokenExtractors.collectFirst {
+          case e if e(req).isRight => e(req)
+        }
           .getOrElse(Left(MissingToken))
 
       Applicative[F].pure(
@@ -80,8 +77,8 @@ object JwtAuthMiddleware {
         Builder(
           validationContext = validationContext,
           validate = liftG(Kleisli[F, C, Either[Error, C]](c => Applicative[F].pure(Right(c)))),
-          onFailure = Kleisli[OptionT[F, *], AuthedRequest[F, Error], Response[F]](
-            _ => OptionT.liftF(Applicative[F].pure(Response(Status.Unauthorized)))
+          onFailure = Kleisli[OptionT[F, *], AuthedRequest[F, Error], Response[F]](_ =>
+            OptionT.liftF(Applicative[F].pure(Response(Status.Unauthorized)))
           ),
           extractors = List(extractTokenFromAuthHeader[F] _)
         )

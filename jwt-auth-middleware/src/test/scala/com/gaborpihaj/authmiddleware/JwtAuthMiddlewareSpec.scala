@@ -1,19 +1,18 @@
 package com.gaborpihaj.authmiddleware
 
+import java.security.KeyPairGenerator
+import javax.crypto.{KeyGenerator, SecretKey}
+
+import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
 import io.circe.generic.auto._
 import io.circe.parser
 import org.http4s._
-import org.http4s.implicits._
 import org.http4s.headers.{Authorization, Cookie}
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-
-import java.security.{KeyPairGenerator}
-import javax.crypto.{KeyGenerator, SecretKey}
-import cats.data.Kleisli
+import org.http4s.implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import cats.data.NonEmptyList
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
 

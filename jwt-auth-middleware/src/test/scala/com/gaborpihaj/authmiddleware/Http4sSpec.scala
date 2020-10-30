@@ -2,7 +2,7 @@ package com.gaborpihaj.authmiddleware
 
 import cats.effect.IO
 import fs2.Stream
-import org.http4s.{AuthedRoutes, Entity, EntityEncoder, Headers, Request, Response}
+import org.http4s._
 import org.http4s.dsl.io._
 import org.http4s.implicits._
 import org.http4s.server.AuthMiddleware

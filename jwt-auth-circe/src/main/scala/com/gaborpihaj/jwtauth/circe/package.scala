@@ -1,9 +1,7 @@
 package com.gaborpihaj.jwtauth
 
 import com.gaborpihaj.authmiddleware.JwtContentDecoder
-
-import io.circe.Decoder
-import io.circe.parser
+import io.circe.{parser, Decoder}
 
 package object circe {
   implicit def deriveJwtContentDecoder[T](implicit D: Decoder[T]): JwtContentDecoder[T] =

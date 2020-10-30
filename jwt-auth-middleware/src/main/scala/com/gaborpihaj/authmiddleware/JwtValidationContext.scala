@@ -1,10 +1,10 @@
 package com.gaborpihaj.authmiddleware
 
-import pdi.jwt.algorithms.{JwtAsymmetricAlgorithm, JwtHmacAlgorithm}
-import pdi.jwt.Jwt
-
 import java.security.PublicKey
 import javax.crypto.SecretKey
+
+import pdi.jwt.Jwt
+import pdi.jwt.algorithms.{JwtAsymmetricAlgorithm, JwtHmacAlgorithm}
 
 sealed trait JwtValidationContext
 case class JwtHmacStringKey(key: String, algorithms: Seq[JwtHmacAlgorithm]) extends JwtValidationContext
