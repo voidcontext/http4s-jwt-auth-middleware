@@ -1,12 +1,10 @@
 package com.gaborpihaj.authmiddleware
 
 import cats.effect.IO
-import cats.data.OptionT
 import io.circe.generic.auto._
 import io.circe.parser
 import org.http4s._
 import org.http4s.implicits._
-import org.http4s.dsl.io._
 import org.http4s.headers.{Authorization, Cookie}
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
@@ -26,7 +24,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
   val secretKey = "secret-key"
   val hmacStringKey = JwtHmacStringKey(secretKey, Seq(JwtAlgorithm.HS512))
 
-  val middleware = JwtAuthMiddleware.fromAuthHeader[IO, Claims](hmacStringKey)
+  val middleware = JwtAuthMiddleware.builder[IO, Claims](hmacStringKey).middleware
 
   val unauthenticateRequest = Request[IO](Method.GET, uri"/some-endpoint")
 
@@ -130,12 +128,12 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
   }
 
   "JwtAuthMiddleware" should {
-    "return 403 Forbidden when auth header is not present" in {
+    "return 401 Forbidden when auth header is not present" in {
       val response = handleRequest(middleware, unauthenticateRequest).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
 
-    "return 403 Forbidden when token is not valid and URL is not found" in {
+    "return 401 Unauthorized when token is not valid and URL is not found" in {
 
       val token =
         Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), "some-other-secret", JwtAlgorithm.HS512)
@@ -143,15 +141,15 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val req = Request[IO](Method.GET, uri"/nonexistent", headers = headers)
 
       val response = handleRequest(middleware, req).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
 
-    "return 403 Forbidden when the auth header is not using the bearer token scheme and URL is found" in {
+    "return 401 Unauthorized when the auth header is not using the bearer token scheme and URL is found" in {
       val response = handleRequest(middleware, basicAuthRequest).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
 
-    "return 403 Forbidden when JWT token is not valid and URL is found" in {
+    "return 401 Unauthorized when JWT token is not valid and URL is found" in {
       val token = Jwt.encode(
         JwtClaim(
           content = "some-content"
@@ -163,12 +161,12 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
       val response = handleRequest(middleware, req).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
 
-    "return 403 Forbidden when JWT algorithm is not matching and URL is found" in {
+    "return 401 Unauthorized when JWT algorithm is not matching and URL is found" in {
       val response = handleRequest(middleware, invalidTokenRequest).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
 
     "return 200 when token is valid and URL is found" in {
@@ -193,7 +191,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
       val middleware =
-        JwtAuthMiddleware.fromAuthHeader[IO, Claims](JwtHmacSecretKey(secretKey, Seq(JwtAlgorithm.HS512)))
+        JwtAuthMiddleware.builder[IO, Claims](JwtHmacSecretKey(secretKey, Seq(JwtAlgorithm.HS512))).middleware
 
       val response = handleRequest(middleware, req).unsafeRunSync()
       response.status should be(Status.Ok)
@@ -208,7 +206,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
       val middleware =
-        JwtAuthMiddleware.fromAuthHeader[IO, Claims](JwtPublicKey(keyPair.getPublic(), JwtAlgorithm.allRSA()))
+        JwtAuthMiddleware.builder[IO, Claims](JwtPublicKey(keyPair.getPublic(), JwtAlgorithm.allRSA())).middleware
 
       val response = handleRequest(middleware, req).unsafeRunSync()
       response.status should be(Status.Ok)
@@ -223,16 +221,12 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
-      val validation: Kleisli[IO, Either[Error, Claims], Either[String, Claims]] = Kleisli { result =>
-        IO.pure(result.left.map(_.toString).flatMap(_ => Left("Nope!")))
-      }
+      val validation: Kleisli[IO, Claims, Either[Error, Claims]] = Kleisli(_ => IO.pure(Left(ExpiredToken)))
 
-      val onFailure: AuthedRoutes[String, IO] = Kleisli(req => OptionT.liftF(Forbidden(req.context)))
-
-      val middleware = JwtAuthMiddleware.fromAuthHeader[IO, Claims, String](hmacStringKey, validation, onFailure)
+      val middleware = JwtAuthMiddleware.builder[IO, Claims](hmacStringKey).validate(validation).middleware
 
       val response = handleRequest(middleware, req).unsafeRunSync()
-      response.status should be(Status.Forbidden)
+      response.status should be(Status.Unauthorized)
     }
   }
 }

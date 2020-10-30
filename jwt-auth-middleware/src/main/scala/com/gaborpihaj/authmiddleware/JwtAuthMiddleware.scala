@@ -2,13 +2,17 @@ package com.gaborpihaj.authmiddleware
 
 import cats.data.{Kleisli, OptionT}
 import cats.{Applicative, Monad}
-import org.http4s.dsl.Http4sDsl
+import org.http4s.Status
 import org.http4s.headers.Authorization
 import org.http4s.server.AuthMiddleware
 import org.http4s.{AuthScheme, AuthedRoutes, Credentials, Request}
 import pdi.jwt.JwtClaim
 import cats.syntax.eq._
+import cats.syntax.traverse._
 import cats.instances.string._
+import org.http4s.Response
+import org.http4s.AuthedRequest
+import cats.Traverse
 
 /** Provides a JWT validation function that can be used with Http4s' AuthMiddleware.
  *
@@ -22,11 +26,9 @@ object JwtAuthMiddleware {
    *                          signature
    * @return a validation function that can be used with Http4s' AuthMiddleware
    */
-  def validateToken[F[_]: Monad, C](
+  def validateToken[F[_]: Monad, C: JwtContentDecoder](
     validationContext: JwtValidationContext,
     tokenExtractors: List[Request[F] => Either[Error, String]]
-  )(
-    implicit D: JwtContentDecoder[C]
   ): Kleisli[F, Request[F], Either[Error, C]] =
     Kleisli { request =>
       val jwtDecoder = JwtValidationContext.decoder(validationContext)
@@ -45,66 +47,74 @@ object JwtAuthMiddleware {
         for {
           token    <- extractFirst(request)
           jwtClaim <- validateToken(token)
-          content  <- D.decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_))
+          content  <- JwtContentDecoder[C].decode(jwtClaim.content).left.map[Error](JwtContentDecoderError(_))
         } yield content
       )
     }
 
-  def fromAuthHeader[F[_]: Monad, C](
+  def builder[F[_]: Monad, C: JwtContentDecoder](
     validationContext: JwtValidationContext
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(validateToken(validationContext, List(extractTokenFromAuthHeader[F] _)), forbiddenOnFailure)
+  ): JwtAuthMiddlewareBuilder[F, C, Error] =
+    JwtAuthMiddlewareBuilder(validationContext)
 
-  def fromAuthHeader[F[_]: Monad, C, E](
-    validationContext: JwtValidationContext,
-    validate: Kleisli[F, Either[Error, C], Either[E, C]],
-    onFailure: AuthedRoutes[E, F]
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(validateToken(validationContext, List(extractTokenFromAuthHeader[F] _)).andThen(validate), onFailure)
+  trait JwtAuthMiddlewareBuilder[F[_], C, E] {
+    def expectCookieOnly(name: String): JwtAuthMiddlewareBuilder[F, C, E]
+    def allowCookie(name: String): JwtAuthMiddlewareBuilder[F, C, E]
+    def recover(f: Kleisli[F, Either[E, C], Either[E, C]]): JwtAuthMiddlewareBuilder[F, C, E]
+    def validate(f: Kleisli[F, C, Either[E, C]]): JwtAuthMiddlewareBuilder[F, C, E]
+    def middleware: AuthMiddleware[F, C]
+  }
 
-  def fromCookie[F[_]: Monad, C](
-    name: String,
-    validationContext: JwtValidationContext
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(validateToken(validationContext, List(extractTokenFromCookie[F](name))), forbiddenOnFailure)
-
-  def fromAuthHeader[F[_]: Monad, C, E](
-    name: String,
-    validationContext: JwtValidationContext,
-    validate: Kleisli[F, Either[Error, C], Either[E, C]],
-    onFailure: AuthedRoutes[E, F]
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(
-      validateToken(validationContext, List(extractTokenFromCookie[F](name) _)).andThen(validate),
-      onFailure
+  object JwtAuthMiddlewareBuilder {
+    private[this] case class Builder[F[_], C](
+      validationContext: JwtValidationContext,
+      validate: Kleisli[F, Either[Error, C], Either[Error, C]],
+      onFailure: AuthedRoutes[Error, F],
+      extractors: List[Request[F] => Either[Error, String]]
     )
 
-  def apply[F[_]: Monad, C](
-    name: String,
-    validationContext: JwtValidationContext
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(
-      validateToken(validationContext, List(extractTokenFromAuthHeader[F] _, extractTokenFromCookie[F](name))),
-      forbiddenOnFailure
-    )
+    def apply[F[_]: Monad, C: JwtContentDecoder](
+      validationContext: JwtValidationContext
+    ): JwtAuthMiddlewareBuilder[F, C, Error] =
+      apply(
+        Builder(
+          validationContext = validationContext,
+          validate = liftG(Kleisli[F, C, Either[Error, C]](c => Applicative[F].pure(Right(c)))),
+          onFailure = Kleisli[OptionT[F, *], AuthedRequest[F, Error], Response[F]](
+            _ => OptionT.liftF(Applicative[F].pure(Response(Status.Unauthorized)))
+          ),
+          extractors = List(extractTokenFromAuthHeader[F] _)
+        )
+      )
 
-  def apply[F[_]: Monad, C, E](
-    name: String,
-    validationContext: JwtValidationContext,
-    validate: Kleisli[F, Either[Error, C], Either[E, C]],
-    onFailure: AuthedRoutes[E, F]
-  )(implicit D: JwtContentDecoder[C]): AuthMiddleware[F, C] =
-    AuthMiddleware(
-      validateToken(validationContext, List(extractTokenFromAuthHeader[F] _, extractTokenFromCookie[F](name) _))
-        .andThen(validate),
-      onFailure
-    )
+    private[this] def liftG[F[_]: Applicative, G[_]: Monad: Traverse, T, S](
+      k: Kleisli[F, T, G[S]]
+    ): Kleisli[F, G[T], G[S]] =
+      Kleisli(_.flatTraverse(k.run))
 
-  def forbiddenOnFailure[F[_]: Monad]: AuthedRoutes[Error, F] = {
-    val dsl = new Http4sDsl[F] {}
+    private[this] def apply[F[_]: Monad, C: JwtContentDecoder](
+      builder: Builder[F, C]
+    ): JwtAuthMiddlewareBuilder[F, C, Error] =
+      new JwtAuthMiddlewareBuilder[F, C, Error] {
 
-    import dsl._
-    Kleisli(_ => OptionT.liftF(Forbidden()))
+        def expectCookieOnly(name: String): JwtAuthMiddlewareBuilder[F, C, Error] =
+          apply(builder.copy(extractors = List(extractTokenFromCookie[F](name) _)))
+
+        def allowCookie(name: String): JwtAuthMiddlewareBuilder[F, C, Error] =
+          apply(builder.copy(extractors = List(extractTokenFromAuthHeader[F] _, extractTokenFromAuthHeader[F] _)))
+
+        def validate(f: Kleisli[F, C, Either[Error, C]]): JwtAuthMiddlewareBuilder[F, C, Error] =
+          apply(builder.copy(validate = liftG(f)))
+
+        def recover(f: Kleisli[F, Either[Error, C], Either[Error, C]]): JwtAuthMiddlewareBuilder[F, C, Error] =
+          apply(builder.copy(validate = f))
+
+        def middleware: AuthMiddleware[F, C] =
+          AuthMiddleware(
+            validateToken(builder.validationContext, builder.extractors).andThen(builder.validate),
+            builder.onFailure
+          )
+      }
   }
 
   private[authmiddleware] def extractTokenFromAuthHeader[F[_]](req: Request[F]): Either[Error, String] =
