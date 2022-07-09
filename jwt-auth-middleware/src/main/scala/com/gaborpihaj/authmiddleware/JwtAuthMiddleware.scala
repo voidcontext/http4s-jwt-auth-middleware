@@ -116,7 +116,7 @@ object JwtAuthMiddleware {
 
   private[authmiddleware] def extractTokenFromAuthHeader[F[_]](req: Request[F]): Either[Error, String] =
     req.headers
-      .get(Authorization)
+      .get[Authorization]
       .flatMap(
         _.credentials match {
           case Credentials.Token(AuthScheme.Bearer, token) => Option(token)

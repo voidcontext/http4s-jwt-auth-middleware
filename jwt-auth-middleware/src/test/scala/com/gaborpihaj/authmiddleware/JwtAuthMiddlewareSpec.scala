@@ -5,6 +5,7 @@ import javax.crypto.{KeyGenerator, SecretKey}
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import io.circe.generic.auto._
 import io.circe.parser
 import org.http4s._
@@ -27,7 +28,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
 
   val unauthenticateRequest = Request[IO](Method.GET, uri"/some-endpoint")
 
-  val basicAuthHeader: Headers = Headers.of(Authorization(BasicCredentials("some-username", "some-password")))
+  val basicAuthHeader: Headers = Headers(Authorization(BasicCredentials("some-username", "some-password")))
   val basicAuthRequest = Request[IO](Method.GET, uri"/some-endpoint", headers = basicAuthHeader)
 
   val invalidToken = Jwt.encode(
@@ -37,7 +38,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
     "wrong-secret",
     JwtAlgorithm.HS256
   )
-  val invalidTokenAuthHeader: Headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, invalidToken)))
+  val invalidTokenAuthHeader: Headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, invalidToken)))
   val invalidTokenRequest = Request[IO](Method.GET, uri"/some-endpoint", headers = invalidTokenAuthHeader)
 
   val unparsebleToken = Jwt.encode(
@@ -48,14 +49,14 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
     JwtAlgorithm.HS512
   )
   val unparsableTokenAuthHeader: Headers =
-    Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, unparsebleToken)))
+    Headers(Authorization(Credentials.Token(AuthScheme.Bearer, unparsebleToken)))
   val unparsableTokenRequest = Request[IO](Method.GET, uri"/some-endpoint", headers = unparsableTokenAuthHeader)
 
   val validToken = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
-  val validAuthHeader = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, validToken)))
+  val validAuthHeader = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, validToken)))
   val authorisedRequest = Request[IO](Method.GET, uri"/some-endpoint", headers = validAuthHeader)
 
-  val validCookieHeader = Headers.of(Cookie(NonEmptyList.of(RequestCookie("test-auth-cookie", validToken))))
+  val validCookieHeader = Headers(Cookie(NonEmptyList.of(RequestCookie("test-auth-cookie", validToken))))
   val authorisedRequestWithCookie = Request[IO](Method.GET, uri"/some-endpoint", headers = validCookieHeader)
 
   val headerExtractor = List(JwtAuthMiddleware.extractTokenFromAuthHeader[IO] _)
@@ -136,7 +137,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
 
       val token =
         Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), "some-other-secret", JwtAlgorithm.HS512)
-      val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/nonexistent", headers = headers)
 
       val response = handleRequest(middleware, req).unsafeRunSync()
@@ -156,7 +157,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
         "wrong-secret",
         JwtAlgorithm.HS512
       )
-      val headers: Headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers: Headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
       val response = handleRequest(middleware, req).unsafeRunSync()
@@ -183,7 +184,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
 
     "return 404 when token is valid but URL is not found" in {
       val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
-      val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/nonexistent", headers = headers)
 
       val response = handleRequest(middleware, req).unsafeRunSync()
@@ -194,7 +195,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val secretKey: SecretKey = KeyGenerator.getInstance("AES").generateKey()
 
       val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
-      val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
       val middleware =
         JwtAuthMiddleware.builder[IO, Claims](JwtHmacSecretKey(secretKey, Seq(JwtAlgorithm.HS512))).middleware
@@ -209,7 +210,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
 
       val token =
         Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), keyPair.getPrivate(), JwtAlgorithm.RS512)
-      val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
       val middleware =
         JwtAuthMiddleware.builder[IO, Claims](JwtPublicKey(keyPair.getPublic(), JwtAlgorithm.allRSA())).middleware
@@ -224,7 +225,7 @@ class JwtAuthMiddlewareSpec extends AnyWordSpec with Http4sSpec with Matchers {
       val hmacStringKey = JwtHmacStringKey(secretKey, Seq(JwtAlgorithm.HS512))
 
       val token = Jwt.encode(JwtClaim(content = """{"userId": "some-user-id"}"""), secretKey, JwtAlgorithm.HS512)
-      val headers = Headers.of(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
+      val headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token)))
       val req = Request[IO](Method.GET, uri"/some-endpoint", headers = headers)
 
       val validation: Kleisli[IO, Claims, Either[Error, Claims]] = Kleisli(_ => IO.pure(Left(ExpiredToken)))

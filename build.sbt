@@ -1,23 +1,22 @@
 import xerial.sbt.Sonatype._
 
-lazy val scala212 = "2.12.12"
-lazy val scala213 = "2.13.3"
-lazy val supportedScalaVersions = List(scala212, scala213)
+lazy val scala213 = "2.13.8"
+lazy val supportedScalaVersions = List(scala213)
 
-val Http4sVersion = "0.21.8"
-val JwtVersion = "4.3.0"
+val Http4sVersion = "0.23.13"
+val JwtVersion = "5.0.0"
 
-val ScalaTestVersion = "3.2.2"
-val CirceVersion = "0.13.0"
+val ScalaTestVersion = "3.2.12"
+val CirceVersion = "0.14.2"
 
 val libraryName = "http4s-jwt-auth-middleware"
-val libraryVersion = "0.5.0-SNAPSHOT"
+val libraryVersion = "0.5.0"
 val organisation = "com.gaborpihaj"
 
 val website = "https://voidcontext.github.io/http4s-jwt-auth-middleware"
 
 ThisBuild / organization := organisation
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala213
 
 ThisBuild / version := libraryVersion
 ThisBuild / homepage := Some(url(website))
@@ -52,8 +51,8 @@ lazy val root = (project in file("."))
     micrositeDocumentationUrl := "docs/step-by-step-example.html",
     micrositeGithubOwner := "voidcontext",
     micrositeGithubRepo := libraryName,
-    micrositeGitterChannel := false,
-    micrositeCompilingDocsTool := WithMdoc
+    micrositeGitterChannel := false
+//    micrositeCompilingDocsTool := WithMdoc
   )
   .dependsOn(jwtAuthMiddleware, jwtAuthCirce)
   .aggregate(jwtAuthMiddleware, jwtAuthCirce)
